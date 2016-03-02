@@ -26,10 +26,20 @@ object ADS1256 {
     val CMD_RREG = 0x10
     val data = (CMD_RREG | REG_STATUS)
 
-    spi.write(data.asInstanceOf[Byte])
+    val result = spi.write(data.asInstanceOf[Byte])
 
     println(data)
+    println(result)
 
+    var count = 0
+    val byte = 0x00
 
+    while(count < 10){
+      var result: Array[Byte] = spi.write(byte.asInstanceOf[Byte])
+      println(result)
+      println(result(0))
+      count += 1
+    }
   }
+
 }
