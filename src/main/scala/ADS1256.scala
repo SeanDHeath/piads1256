@@ -6,17 +6,17 @@ object ADS1256 {
   // Register Addresses
   val NUM_REGISTERS = 11
   val Register = Map[String, Byte](
-    "REG_STATUS"  -> 0x00.toByte,
-    "REG_MUX"     -> 0x01.toByte,
-    "REG_ADCON"   -> 0x02.toByte,
-    "REG_DRATE"   -> 0x03.toByte,
-    "REG_IO"      -> 0x04.toByte,
-    "REG_OFC0"    -> 0x05.toByte,
-    "REG_OFC1"    -> 0x06.toByte,
-    "REG_OFC2"    -> 0x07.toByte,
-    "REG_FSC0"    -> 0x08.toByte,
-    "REG_FSC1"    -> 0x09.toByte,
-    "REG_FSC2"    -> 0x0A.toByte
+    "STATUS"  -> 0x00.toByte,
+    "MUX"     -> 0x01.toByte,
+    "ADCON"   -> 0x02.toByte,
+    "DRATE"   -> 0x03.toByte,
+    "IO"      -> 0x04.toByte,
+    "OFC0"    -> 0x05.toByte,
+    "OFC1"    -> 0x06.toByte,
+    "OFC2"    -> 0x07.toByte,
+    "FSC0"    -> 0x08.toByte,
+    "FSC1"    -> 0x09.toByte,
+    "FSC2"    -> 0x0A.toByte
   )
 
   // Analog Inputs
