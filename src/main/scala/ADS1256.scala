@@ -126,6 +126,7 @@ object ADS1256 {
   }
 
   /** Writes data to an ADS1256 register through the SPI bus.
+ *
     * @param start_register
     * @param data
     */
@@ -148,6 +149,7 @@ object ADS1256 {
   }
 
   /** Writes data to multiple consecutive registers on the ADS1256.
+ *
     * @param start_register
     * @param data
     */
@@ -202,7 +204,7 @@ object ADS1256 {
   /** Returns an Int containing the 24 bit analog voltage value provided by the ADS1256
     *
     */
-  def ReadInput() = {
+  def ReadData() = {
     // If data is ready
     if (DataReady()){
       chip_select()
@@ -216,7 +218,19 @@ object ADS1256 {
     } else {
       println("Could not read ADC")
     }
+  }
 
+  def ReadInputs(inputs: List[Byte]) = {
+    // Ensure the inputs provided are valid input numbers
+    if (Input.values.toList.containsSlice(inputs)){
+      for (input <- inputs){
+        // Adjust the ADS1256 to the correct input
+        SelectInput(input)
+        ReadData()
+      }
+    } else {
+      println("Read Inputs: Invalid inputs provided")
+    }
   }
 
   def main(args: Array[String]): Unit = {
@@ -245,6 +259,6 @@ object ADS1256 {
       count += 1
     }
     */
-    ReadInput()
+    ReadInputs(Input.values.toList)
   }
 }
