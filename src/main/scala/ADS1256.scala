@@ -2,6 +2,8 @@ import akka.actor.Actor
 import com.pi4j.io.gpio.{PinState, RaspiPin, GpioFactory}
 import com.pi4j.io.spi.{SpiMode, SpiChannel, SpiFactory}
 
+import scala.collection.mutable.ListBuffer
+
 object ADS1256 {
   // Register Addresses
   val NUM_REGISTERS = 11
@@ -236,7 +238,11 @@ object ADS1256 {
 
   def ReadSingleInputs(inputs: List[Byte]) = {
     // Ensure the inputs provided are valid input numbers
-    for (input <- inputs) yield ReadSingleInput(input)
+    val values = new ListBuffer[Int]()
+    for (input <- inputs) {
+      values += ReadSingleInput(input)
+    }
+    values.toList
   }
 
   def ConvertVoltage(voltage: Int, vref: Int = 5) = {
@@ -270,7 +276,10 @@ object ADS1256 {
       count += 1
     }
     */
-    val results = ReadSingleInputs(Input.values.toList).map{voltage: Int => ConvertVoltage(voltage)}
+
+    val results = ReadSingleInputs(Input.values.toList)
+    val converted = results.map{voltage: Int => ConvertVoltage(voltage)}
+    converted.map{value: Int => println(value)}
     results.map{result: Int => println(result)}
   }
 }
