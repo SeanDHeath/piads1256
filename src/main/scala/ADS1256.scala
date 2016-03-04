@@ -245,7 +245,7 @@ object ADS1256 {
 
     for (i <- Range(0,n)) {
       // Write always returns an Array of Byte, even if it's just one byte. Pull the byte out and add it to the List
-      result += spidev.write(0x00.toByte)(0).toInt
+      result += (spidev.write(0x00.toByte)(0).toInt & 0x000F)
     }
     result.toList
   }
