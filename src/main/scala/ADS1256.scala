@@ -262,7 +262,7 @@ object ADS1256 {
   def main(args: Array[String]): Unit = {
     for (input <- Input.values){
       val voltage = ConvertVoltage(ReadInput(input))
-      println("Input " + input)
+      println("Input " + input.id.toString + ": " + voltage.toString + "V")
     }
   }
 }
