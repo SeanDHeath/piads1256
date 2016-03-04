@@ -1,7 +1,8 @@
+package com.heath.rpi
 import java.util.concurrent.TimeUnit
 
-import _root_.ADS1256.Input.Input
-import _root_.ADS1256.Register.Register
+import ADS1256.Input.Input
+import ADS1256.Register.Register
 import com.pi4j.io.gpio.{PinState, RaspiPin, GpioFactory}
 import com.pi4j.io.spi.{SpiMode, SpiChannel, SpiFactory}
 
@@ -259,7 +260,7 @@ object ADS1256 {
   }
 
   def main(args: Array[String]): Unit = {
-    for (input <- Input){
+    for (input <- Input.values){
       val voltage = ConvertVoltage(ReadInput(input))
       println("Input " + input)
     }
