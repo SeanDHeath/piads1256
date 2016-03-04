@@ -263,6 +263,7 @@ object ADS1256 {
 
   def ConvertVoltage(voltage: Int, vref: Double = 5.0): Double = {
     val resolution: Double = vref / 0x0FFF.toDouble
+    println(voltage)
     voltage * resolution
   }
 
