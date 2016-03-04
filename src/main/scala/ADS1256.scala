@@ -246,7 +246,6 @@ object ADS1256 {
   def ReadSPI(n: Int): List[Int] = {
     var result = ListBuffer[Int]()
 
-    TimeUnit.MICROSECONDS.sleep(20)
     for (i <- Range(0,n)) {
       // Write always returns an Array of Byte, even if it's just one byte. Pull the byte out and add it to the List
       result += (spidev.write(0x00.toByte)(0).toInt & 0x000F)
@@ -271,7 +270,27 @@ object ADS1256 {
     voltage * resolution
   }
 
+  def InitializeADS1256() = {
+    var commands = Queue[Int]()
+    commands += Command.WREG.id | Register.STATUS.id
+    commands += 0x00
+    commands += 0x04 // Auto calibration enabled
+    chip_select()
+    WriteSPI(commands)
+    chip_release()
+
+    commands.clear()
+    commands += Command.WREG.id | Register.DRATE.id
+    commands += 0x00
+    commands += DataRate.DRATE_1000.id // 1k samples / sec
+    chip_select()
+    WriteSPI(commands)
+    chip_release()
+  }
+
   def main(args: Array[String]): Unit = {
+    InitializeADS1256()
+
     for (input <- Input.values){
       ReadInput(input) match {
         case Some(i) => println("Input " + input.id.toString + ": " + ConvertVoltage(i).toString + "V")
