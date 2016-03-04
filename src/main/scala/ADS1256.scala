@@ -99,11 +99,17 @@ object ADS1256 {
   val PDWN_PIN = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_02)
   val CS_PIN = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_03)
 
+  // These must be used to tell the ADS1256 we're talking to it - if we don't use them then we will get no information
+  // from the chip
   def chip_select() = CS_PIN.low()
-
   def chip_release() = CS_PIN.high()
 
+  // Reference number
   val null_byte = 0x00.toByte
+
+  // This stores the current register the ADS1256 is reading
+  var current_positive_input = 0x00
+  var current_negative_input = 0x01
 
   // Initial Config of Pi
   RESET_PIN.high()
@@ -116,7 +122,7 @@ object ADS1256 {
 
     // Wait for drdy to go low or for timeout to occur
     while (((currentTime - System.currentTimeMillis()) < drdy_timeout) &&
-      (DRDY_PIN.getState() != PinState.LOW)) {
+      (DRDY_PIN.getState != PinState.LOW)) {
     }
 
     // If we timed out
@@ -154,7 +160,7 @@ object ADS1256 {
 
   /** Writes data to multiple consecutive registers on the ADS1256.
     *
-    * @param start_register
+    * @param start_register: Value from the Register map
     * @param data
     */
   def WriteRegisters(start_register: Byte, data: List[Byte]) = {
@@ -226,23 +232,14 @@ object ADS1256 {
   }
 
   // TODO: ReadDifferentialInput
-  def ReadSingleInput(input: Byte) = {
-    if (Input.values.exists(_ == input)){
-      SelectInput(input)
-      ReadData()
-    } else {
-      println("ReadInput: Invalid input number")
-      0
+  def ReadInput(positive_input: Byte, negative_input: Byte = Input("AINCOM")) = {
+    // We only want to switch the input if we have to
+    if ((current_positive_input != positive_input) || (current_negative_input != negative_input)){
+        current_positive_input = positive_input
+        current_negative_input = negative_input
+        SelectInput(positive_input, negative_input)
     }
-  }
-
-  def ReadSingleInputs(inputs: List[Byte]) = {
-    // Ensure the inputs provided are valid input numbers
-    val values = new ListBuffer[Int]()
-    for (input <- inputs) {
-      values += ReadSingleInput(input)
-    }
-    values.toList
+    ReadData()
   }
 
   def ConvertVoltage(voltage: Int, vref: Double = 5.0): Double = {
@@ -277,9 +274,8 @@ object ADS1256 {
     }
     */
 
-    val results = ReadSingleInputs(Input.values.toList)
-    val converted = results.map{voltage: Int => ConvertVoltage(voltage)}
-    converted.map{value: Double => println(value)}
-    results.map{result: Int => println(result)}
+    for (item <- Input.values.toList){
+      println(ConvertVoltage(ReadInput(item)))
+    }
   }
 }
