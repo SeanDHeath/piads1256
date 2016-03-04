@@ -6,6 +6,7 @@ import ADS1256.Register.Register
 import com.pi4j.io.gpio.{PinState, RaspiPin, GpioFactory}
 import com.pi4j.io.spi.{SpiMode, SpiChannel, SpiFactory}
 
+import scala.None
 import scala.collection.mutable.{ListBuffer, Queue}
 
 object ADS1256 {
@@ -218,7 +219,7 @@ object ADS1256 {
   /** Returns an Int containing the 24 bit analog voltage value provided by the ADS1256
     *
     */
-  def ReadData(): Int = {
+  def ReadData(): Option[Int] = {
     // If data is ready
     if (DataReady()) {
       // Send the command
@@ -226,10 +227,10 @@ object ADS1256 {
       commands += Command.RDATA.id
       WriteSPI(commands)
       val bytes = ReadSPI(3)
-      ((bytes(0) << 16) | (bytes(1) << 8) | bytes(2)) & (0x0FFF)
+      Some((bytes(0) << 16) | (bytes(1) << 8) | (bytes(2)) & 0x0FFF)
     } else {
       println("ReadData: Failed to read data")
-      0
+      None
     }
   }
 
@@ -261,8 +262,10 @@ object ADS1256 {
 
   def main(args: Array[String]): Unit = {
     for (input <- Input.values){
-      val voltage = ConvertVoltage(ReadInput(input))
-      println("Input " + input.id.toString + ": " + voltage.toString + "V")
+      ReadInput(input) match {
+        case Some(i) => println("Input " + input.id.toString + ": " + ConvertVoltage(i).toString + "V")
+        case None => println("Failed to read input " + input.id.toString)
+      }
     }
   }
 }
