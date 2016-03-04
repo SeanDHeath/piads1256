@@ -215,7 +215,8 @@ object ADS1256 {
       spidev.write(Command("RDATA"))
       // Read back 24 bytes of data
       val bytes = spidev.write(read_bytes, 0, 3)
-      (bytes(0) << 16) | (bytes(1) << 8) | bytes(2)
+      println(((bytes(0) << 16) | (bytes(1) << 8) | bytes(2)) & (0x0FFF))
+      ((bytes(0) << 16) | (bytes(1) << 8) | bytes(2)) & (0x0FFF)
     } else {
       println("Could not read ADC")
       0
