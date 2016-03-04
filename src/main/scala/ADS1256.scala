@@ -233,6 +233,7 @@ object ADS1256 {
       WriteSPI(commands)
       val bytes = ReadSPI(3)
       chip_release()
+      println(bytes)
       Some((bytes(0) << 16) | (bytes(1) << 8) | (bytes(2)) & 0x0FFF)
     } else {
       println("ReadData: Failed to read data")
