@@ -273,8 +273,6 @@ object ADS1256 {
     }
     */
 
-    for (item <- Input.values.toList){
-      println(ConvertVoltage(ReadInput(item)))
-    }
+    println(ConvertVoltage(ReadInput(Input("AIN0"))))
   }
 }
