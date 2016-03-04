@@ -245,8 +245,8 @@ object ADS1256 {
     values.toList
   }
 
-  def ConvertVoltage(voltage: Int, vref: Int = 5) = {
-    val resolution = vref / 0x0FFF
+  def ConvertVoltage(voltage: Int, vref: Double = 5.0): Double = {
+    val resolution: Double = vref / 0x0FFF
     voltage * resolution
   }
 
@@ -279,7 +279,7 @@ object ADS1256 {
 
     val results = ReadSingleInputs(Input.values.toList)
     val converted = results.map{voltage: Int => ConvertVoltage(voltage)}
-    converted.map{value: Int => println(value)}
+    converted.map{value: Double => println(value)}
     results.map{result: Int => println(result)}
   }
 }
