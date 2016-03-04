@@ -154,7 +154,9 @@ object ADS1256 {
       commands += 0x00
       commands += data
 
+      chip_select()
       WriteSPI(commands)
+      chip_release()
     } else {
       println("Write Register: Provided register address is not valid")
     }
@@ -165,13 +167,11 @@ object ADS1256 {
     * @param values
     */
   def WriteSPI(values: Queue[Int]) = {
-    chip_select()
     for (value <- values){
       spidev.write(value.toByte)
       // Need to wait between each byte
       TimeUnit.MICROSECONDS.sleep(10)
     }
-    chip_release()
   }
 
   /** Writes data to multiple consecutive registers on the ADS1256.
@@ -190,7 +190,9 @@ object ADS1256 {
         commands += item
       }
 
+      chip_select()
       WriteSPI(commands)
+      chip_release()
   }
 
   // The chip default is a differential reading between AIN0 and AIN1, this defaults to reading a single ended read
@@ -212,7 +214,9 @@ object ADS1256 {
         commands += Command.SYNC.id
         commands += Command.WAKEUP.id
 
+        chip_select()
         WriteSPI(commands)
+        chip_release()
       }
   }
 
@@ -225,8 +229,10 @@ object ADS1256 {
       // Send the command
       var commands = Queue[Int]()
       commands += Command.RDATA.id
+      chip_select()
       WriteSPI(commands)
       val bytes = ReadSPI(3)
+      chip_release()
       Some((bytes(0) << 16) | (bytes(1) << 8) | (bytes(2)) & 0x0FFF)
     } else {
       println("ReadData: Failed to read data")
@@ -237,12 +243,10 @@ object ADS1256 {
   def ReadSPI(n: Int): List[Byte] = {
     var result = ListBuffer[Byte]()
 
-    chip_select()
     for (i <- Range(0,n)) {
       // Write always returns an Array of Byte, even if it's just one byte. Pull the byte out and add it to the List
       result += spidev.write(0x00.toByte)(0)
     }
-    chip_release()
     result.toList
   }
 
