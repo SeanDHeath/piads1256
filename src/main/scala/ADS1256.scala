@@ -215,7 +215,6 @@ object ADS1256 {
       spidev.write(Command("RDATA"))
       // Read back 24 bytes of data
       val bytes = spidev.write(read_bytes, 0, 3)
-      println((bytes(0) << 16) | (bytes(1) << 8) | bytes(2))
       (bytes(0) << 16) | (bytes(1) << 8) | bytes(2)
     } else {
       println("Could not read ADC")
@@ -270,6 +269,7 @@ object ADS1256 {
       count += 1
     }
     */
-    ReadSingleInputs(Input.values.toList).map{voltage: Int => ConvertVoltage(voltage)}
+    val results = ReadSingleInputs(Input.values.toList).map{voltage: Int => ConvertVoltage(voltage)}
+    results.map{result: Int => println(result)}
   }
 }
