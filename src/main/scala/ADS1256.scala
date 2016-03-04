@@ -206,7 +206,7 @@ object ADS1256 {
   /** Returns an Int containing the 24 bit analog voltage value provided by the ADS1256
     *
     */
-  def ReadData(): Option[Int] = {
+  def ReadData(): Int = {
     // If data is ready
     if (DataReady()) {
       chip_select()
@@ -219,22 +219,24 @@ object ADS1256 {
       (bytes(0) << 16) | (bytes(1) << 8) | bytes(2)
     } else {
       println("Could not read ADC")
+      0
     }
   }
 
   // TODO: ReadDifferentialInput
-  def ReadSingleInput(input: Byte): Int = {
+  def ReadSingleInput(input: Byte) = {
     if (Input.values.exists(_ == input)){
       SelectInput(input)
       ReadData()
     } else {
       println("ReadInput: Invalid input number")
+      0
     }
   }
 
-  def ReadSingleInputs(inputs: List[Byte]): List[Int] = {
+  def ReadSingleInputs(inputs: List[Byte]) = {
     // Ensure the inputs provided are valid input numbers
-    for (input <- inputs) yield ReadInput(input)
+    for (input <- inputs) yield ReadSingleInput(input)
   }
 
   def ConvertVoltage(voltage: Int, vref: Int = 5) = {
@@ -268,6 +270,6 @@ object ADS1256 {
       count += 1
     }
     */
-    ConvertVoltage(ReadInputs(Input.values.toList))
+    ReadSingleInputs(Input.values.toList).map{voltage: Int => ConvertVoltage(voltage)}
   }
 }
