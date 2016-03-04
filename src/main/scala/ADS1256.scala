@@ -234,7 +234,9 @@ object ADS1256 {
       val bytes = ReadSPI(3)
       chip_release()
       println(bytes)
-      Some((bytes(0) << 16) | (bytes(1) << 8) | (bytes(2)) & 0x0FFF)
+      val retval = (bytes(0) << 16) | (bytes(1) << 8) | (bytes(2)) & 0x0FFF
+      println(retval)
+      Some(retval)
     } else {
       println("ReadData: Failed to read data")
       None
