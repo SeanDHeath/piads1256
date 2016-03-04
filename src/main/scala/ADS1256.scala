@@ -1,86 +1,93 @@
-import akka.actor.Actor
+import java.util.concurrent.TimeUnit
+
+import _root_.ADS1256.Input.Input
+import _root_.ADS1256.Register.Register
 import com.pi4j.io.gpio.{PinState, RaspiPin, GpioFactory}
 import com.pi4j.io.spi.{SpiMode, SpiChannel, SpiFactory}
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{ListBuffer, Queue}
 
 object ADS1256 {
   // Register Addresses
   val NUM_REGISTERS = 11
-  val Register = Map[String, Byte](
-    "STATUS" -> 0x00.toByte,
-    "MUX" -> 0x01.toByte,
-    "ADCON" -> 0x02.toByte,
-    "DRATE" -> 0x03.toByte,
-    "IO" -> 0x04.toByte,
-    "OFC0" -> 0x05.toByte,
-    "OFC1" -> 0x06.toByte,
-    "OFC2" -> 0x07.toByte,
-    "FSC0" -> 0x08.toByte,
-    "FSC1" -> 0x09.toByte,
-    "FSC2" -> 0x0A.toByte
-  )
+  object Register extends Enumeration {
+    type Register = Value
+    val STATUS    = Value(0x00)
+    val MUX       = Value(0x01)
+    val ADCON     = Value(0x02)
+    val DRATE     = Value(0x03)
+    val IO        = Value(0x04)
+    val OFC0      = Value(0x05)
+    val OFC1      = Value(0x06)
+    val OFC2      = Value(0x07)
+    val FSC0      = Value(0x08)
+    val FSC1      = Value(0x09)
+    val FSC2      = Value(0x0A)
+  }
 
   // Analog Inputs
-  val Input = Map[String, Byte](
-    "AIN0" -> 0x00.toByte,
-    "AIN1" -> 0x01.toByte,
-    "AIN2" -> 0x02.toByte,
-    "AIN3" -> 0x03.toByte,
-    "AIN4" -> 0x04.toByte,
-    "AIN5" -> 0x05.toByte,
-    "AIN6" -> 0x06.toByte,
-    "AIN7" -> 0x07.toByte,
-    "AINCOM" -> 0x80.toByte
-  )
+  object Input extends Enumeration {
+    type Input    = Value
+    val AIN0      = Value(0x00)
+    val AIN1      = Value(0x01)
+    val AIN2      = Value(0x02)
+    val AIN3      = Value(0x03)
+    val AIN4      = Value(0x04)
+    val AIN5      = Value(0x05)
+    val AIN6      = Value(0x06)
+    val AIN7      = Value(0x07)
+    val AINCOM    = Value(0x08)
+  }
 
   // Commands
-  val Command = Map[String, Byte](
-    "WAKEUP" -> 0x00.toByte, // Completes SYNC and exits standby mode
-    "RDATA" -> 0x01.toByte, // Read data
-    "RDATAC" -> 0x03.toByte, // Start read data continuously
-    "SDATAC" -> 0x0F.toByte, // Stop read data continuously
-    "RREG" -> 0x10.toByte, // Read from register
-    "WREG" -> 0x50.toByte, // Write to register
-    "SELFCAL" -> 0xF0.toByte, // Offset and gain self-calibration
-    "SELFOCAL" -> 0xF1.toByte, // Offset self-calibration
-    "SELFGCAL" -> 0xF2.toByte, // Gain self-calibration
-    "SYSOCAL" -> 0xF3.toByte, // System offset calibration
-    "SYSGCAL" -> 0xF4.toByte, // System gain calibration
-    "SYNC" -> 0xFC.toByte, // Synchronize the A/D conversion
-    "STANDBY" -> 0xFD.toByte, // Begin standby mode
-    "RESET" -> 0xFE.toByte // Reset to power-on values
-  )
+  object Command extends Enumeration {
+    type Command = Value
+    val WAKEUP    = Value(0x00)
+    val RDATA     = Value(0x01)
+    val RDATAC    = Value(0x03)
+    val SDATAC    = Value(0x0F)
+    val RREG      = Value(0x10)
+    val WREG      = Value(0x50)
+    val SELFCAL   = Value(0xF0)
+    val SELFOCAL  = Value(0xF1)
+    val SELFGCAL  = Value(0xF2)
+    val SYSOCAL   = Value(0xF3)
+    val SYSGCAL   = Value(0xF4)
+    val SYNC      = Value(0xFC)
+    val STANDBY   = Value(0xFD)
+    val RESET     = Value(0xFE)
+  }
 
   // DRATE Speeds
-  val DataRate = Map[String, Byte](
-    "DRATE_30000" -> 0xF0.toByte, // 30,000SPS (default)
-    "DRATE_15000" -> 0xE0.toByte, // 15,000SPS
-    "DRATE_7500" -> 0xD0.toByte, // 7,500SPS
-    "DRATE_3750" -> 0xC0.toByte, // 3,750SPS
-    "DRATE_2000" -> 0xB0.toByte, // 2,000SPS
-    "DRATE_1000" -> 0xA1.toByte, // 1,000SPS
-    "DRATE_500" -> 0x92.toByte, // 500SPS
-    "DRATE_100" -> 0x82.toByte, // 100SPS
-    "DRATE_60" -> 0x72.toByte, // 60SPS
-    "DRATE_50" -> 0x63.toByte, // 50SPS
-    "DRATE_30" -> 0x53.toByte, // 30SPS
-    "DRATE_25" -> 0x43.toByte, // 25SPS
-    "DRATE_15" -> 0x33.toByte, // 15SPS
-    "DRATE_10" -> 0x20.toByte, // 10SPS
-    "DRATE_5" -> 0x13.toByte, // 5SPS
-    "DRATE_2_5" -> 0x03.toByte // 2.5SPS
-  )
+  object DataRate extends Enumeration {
+    type DataRate = Value
+    val DRATE_30000 = Value(0xF0) // 30,000SPS (default)
+    val DRATE_15000 = Value(0xE0) // 15,000SPS
+    val DRATE_7500 = Value(0xD0) // 7,500SPS
+    val DRATE_3750 = Value(0xC0) // 3,750SPS
+    val DRATE_2000 = Value(0xB0) // 2,000SPS
+    val DRATE_1000 = Value(0xA1) // 1,000SPS
+    val DRATE_500 = Value(0x92) // 500SPS
+    val DRATE_100 = Value(0x82) // 100SPS
+    val DRATE_60 = Value(0x72) // 60SPS
+    val DRATE_50 = Value(0x63) // 50SPS
+    val DRATE_30 = Value(0x53) // 30SPS
+    val DRATE_25 = Value(0x43) // 25SPS
+    val DRATE_15 = Value(0x33) // 15SPS
+    val DRATE_10 = Value(0x20) // 10SPS
+    val DRATE_5 = Value(0x13) // 5SPS
+    val DRATE_2_5 = Value(0x03)// 2.5SPS
+  }
   // Gain levels
-  val GainLevel = Map[String, Byte](
-    "AD_GAIN_1" -> 0x00.toByte, // default
-    "AD_GAIN_2" -> 0x01.toByte,
-    "AD_GAIN_4" -> 0x02.toByte,
-    "AD_GAIN_8" -> 0x03.toByte,
-    "AD_GAIN_16" -> 0x04.toByte,
-    "AD_GAIN_32" -> 0x05.toByte,
-    "AD_GAIN_64" -> 0x06.toByte
-  )
+  object GainLevel extends Enumeration {
+    val AD_GAIN_1 = Value(0x00)// default
+    val AD_GAIN_2 = Value(0x01)
+    val AD_GAIN_4 = Value(0x02)
+    val AD_GAIN_8 = Value(0x03)
+    val AD_GAIN_16 = Value(0x04)
+    val AD_GAIN_32 = Value(0x05)
+    val AD_GAIN_64 = Value(0x06)
+  }
 
   // Defaults for RPi 2
   var spi_frequency = 1000000
@@ -104,12 +111,9 @@ object ADS1256 {
   def chip_select() = CS_PIN.low()
   def chip_release() = CS_PIN.high()
 
-  // Reference number
-  val null_byte = 0x00.toByte
-
   // This stores the current register the ADS1256 is reading
-  var current_positive_input = 0x00
-  var current_negative_input = 0x01
+  var current_positive_input = Input.AIN0
+  var current_negative_input = Input.AIN1
 
   // Initial Config of Pi
   RESET_PIN.high()
@@ -140,22 +144,32 @@ object ADS1256 {
     * @param start_register
     * @param data
     */
-  def WriteRegister(start_register: Byte, data: Byte) = {
+  def WriteRegister(start_register: Register, data: Byte): Unit = {
     // Validate the register and data length
     if (Register.values.exists(_ == start_register)) {
-      chip_select()
-      // Generate the command for the appropriate register
-      val cmd: Byte = (Command("WREG") | start_register).toByte
-      // Write the start register and command
-      spidev.write(cmd)
-      // Write the number of follow on registers to write (determined by the length of data)
-      spidev.write(0x00.toByte)
-      // Write the register contents
-      spidev.write(data)
-      chip_release()
+      var commands = Queue[Int]()
+      commands += (Command.WREG.id | start_register.id)
+      commands += 0x00
+      commands += data
+
+      WriteSPI(commands)
     } else {
       println("Write Register: Provided register address is not valid")
     }
+  }
+
+  /** Writes a string of data to the SPI bus, all Ints are truncated to Bytes
+    *
+    * @param values
+    */
+  def WriteSPI(values: Queue[Int]) = {
+    chip_select()
+    for (value <- values){
+      spidev.write(value.toByte)
+      // Need to wait between each byte
+      TimeUnit.MICROSECONDS.sleep(10)
+    }
+    chip_release()
   }
 
   /** Writes data to multiple consecutive registers on the ADS1256.
@@ -163,31 +177,18 @@ object ADS1256 {
     * @param start_register: Value from the Register map
     * @param data
     */
-  def WriteRegisters(start_register: Byte, data: List[Byte]) = {
-    // Validate the register and data length
-    if (Register.values.exists(_ == start_register)) {
-      // Ensure the length of the data is shorter than the number of registers provided by the ADS1256
-      if (data.length <= NUM_REGISTERS) {
-        chip_select()
-
-        // Generate the command for the appropriate register
-        val cmd: Byte = (Command("WREG") | start_register).toByte
-
-        // Write the start register and command
-        spidev.write(cmd)
-        // Write the number of follow on registers to write (determined by the length of data)
-        spidev.write(data.length.toByte)
-        // Write the register contents
-        for (byte <- data) {
-          spidev.write(byte)
-        }
-        chip_release()
-      } else {
-        println("Write Register: Invalid data length")
+  def WriteRegisters(start_register: Register, data: List[Int]) = {
+      var commands = Queue[Int]()
+      // Generate the command for the appropriate register
+      commands += (Command.WREG.id | start_register.id)
+      // Add the number of registers to write
+      commands += data.length
+      // Add the data to write
+      for (item <- data){
+        commands += item
       }
-    } else {
-      println("Write Register: Provided register address is not valid")
-    }
+
+      WriteSPI(commands)
   }
 
   // The chip default is a differential reading between AIN0 and AIN1, this defaults to reading a single ended read
@@ -201,14 +202,16 @@ object ADS1256 {
     * @param positive_input
     * @param negative_input
     */
-  def SelectInput(positive_input: Byte, negative_input: Byte = Input("AINCOM")) = {
-    // The top 4 bits indicate the positive input, the bottom 4 bits indicate the negative input, default to AINCOM (GND)
-    if (Input.values.exists(_ == positive_input) && Input.values.exists(_ == negative_input)) {
-      val data = ((positive_input << 4) | (negative_input & 0x0F)).toByte
-      WriteRegister(Register("MUX"), data)
-    } else {
-      println("Select Input: Invalid inputs selected")
-    }
+  def SelectInput(positive_input: Input, negative_input: Input = Input.AINCOM) = {
+      // Wait for DRDY before sending MUX signal
+      if (DataReady()){
+        var commands = Queue[Int]()
+        commands += ((positive_input.id << 4) | (negative_input.id & 0x0F))
+        commands += Command.SYNC.id
+        commands += Command.WAKEUP.id
+
+        WriteSPI(commands)
+      }
   }
 
   /** Returns an Int containing the 24 bit analog voltage value provided by the ADS1256
@@ -217,21 +220,30 @@ object ADS1256 {
   def ReadData(): Int = {
     // If data is ready
     if (DataReady()) {
-      chip_select()
       // Send the command
-      val read_bytes = Array[Byte](0, 0, 0)
-      spidev.write(Command("RDATA"))
-      // Read back 24 bytes of data
-      val bytes = spidev.write(read_bytes, 0, 3)
+      var commands = Queue[Int]()
+      commands += Command.RDATA.id
+      WriteSPI(commands)
+      val bytes = ReadSPI(3)
       ((bytes(0) << 16) | (bytes(1) << 8) | bytes(2)) & (0x0FFF)
     } else {
-      println("Could not read ADC")
+      println("ReadData: Failed to read data")
       0
     }
   }
 
+  def ReadSPI(n: Int) = {
+    var result = ListBuffer[Byte]()
+
+    for (i <- Range(0,n)) {
+      // Write always returns an Array of Byte, even if it's just one byte. Pull the byte out and add it to the List
+      result += spidev.write(0x00.toByte)(0)
+    }
+    result.toList
+  }
+
   // TODO: ReadDifferentialInput
-  def ReadInput(positive_input: Byte, negative_input: Byte = Input("AINCOM")) = {
+  def ReadInput(positive_input: Input, negative_input: Input = Input.AINCOM) = {
     // We only want to switch the input if we have to
     if ((current_positive_input != positive_input) || (current_negative_input != negative_input)){
         current_positive_input = positive_input
@@ -242,37 +254,14 @@ object ADS1256 {
   }
 
   def ConvertVoltage(voltage: Int, vref: Double = 5.0): Double = {
-    val resolution: Double = vref / 0x0FFF
+    val resolution: Double = vref / 0x0FFF.toDouble
     voltage * resolution
   }
 
   def main(args: Array[String]): Unit = {
-
-    /*
-    RESET_PIN.high()
-    PDWN_PIN.high()
-    CS_PIN.low()
-
-    val REG_STATUS = 0x00
-    val CMD_RREG = 0x10
-    val data = (CMD_RREG | REG_STATUS)
-
-    val result = spi.write(data.asInstanceOf[Byte])
-
-    println(data)
-    println(result)
-
-    var count = 0
-    val byte = 0x00
-
-    while(count < 10){
-      val result: Array[Byte] = spi.write(byte.asInstanceOf[Byte])
-      println(result)
-      println(result(0))
-      count += 1
+    for (input <- Input){
+      val voltage = ConvertVoltage(ReadInput(input))
+      println("Input " + input)
     }
-    */
-
-    println(ConvertVoltage(ReadInput(Input("AIN0"))))
   }
 }
