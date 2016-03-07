@@ -238,8 +238,8 @@ object ADS1256 {
       WriteSPI(commands)
       val bytes = ReadSPI(3)
       chip_release()
+      println(bytes)
       val retval = (bytes(0) << 16) | (bytes(1) << 8) | (bytes(2)) & 0x0FFF
-      println(retval)
       Some(retval)
     } else {
       println("ReadData: Failed to read data")
@@ -261,7 +261,6 @@ object ADS1256 {
 
   def ConvertVoltage(voltage: Int, vref: Double = 5.0): Double = {
     val resolution: Double = vref / 0x0FFF.toDouble
-    println(voltage)
     voltage * resolution
   }
 
