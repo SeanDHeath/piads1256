@@ -236,6 +236,7 @@ object ADS1256 {
       commands += Command.RDATA.id
       chip_select()
       WriteSPI(commands)
+      DataDelay()
       val bytes = ReadSPI(3)
       chip_release()
       println(bytes)
@@ -245,6 +246,10 @@ object ADS1256 {
       println("ReadData: Failed to read data")
       None
     }
+  }
+
+  def DataDelay() = {
+    TimeUnit.MICROSECONDS.sleep(100)
   }
 
 
