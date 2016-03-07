@@ -168,6 +168,7 @@ object ADS1256 {
     * @param values
     */
   def WriteSPI(values: Queue[Int]) = {
+    println("WriteSPI: " + values)
     for (value <- values){
       spidev.write(value.toByte)
       // Need to wait between each byte
