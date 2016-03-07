@@ -7,6 +7,7 @@ import com.pi4j.io.gpio.{PinState, RaspiPin, GpioFactory}
 import com.pi4j.io.spi.{SpiMode, SpiChannel, SpiFactory}
 
 import scala.None
+import scala.collection.mutable
 import scala.collection.mutable.{ListBuffer, Queue}
 
 object ADS1256 {
@@ -173,6 +174,10 @@ object ADS1256 {
       TimeUnit.MICROSECONDS.sleep(10)
     }
   }
+  def ReadSPI(n: Int): List[Byte] = {
+    val arr = Array.fill[Byte](n)(0)
+    spidev.write(arr, 0, arr.length).toList
+  }
 
   /** Writes data to multiple consecutive registers on the ADS1256.
     *
@@ -231,9 +236,8 @@ object ADS1256 {
       commands += Command.RDATA.id
       chip_select()
       WriteSPI(commands)
-      val bytes = ReadSPI(5)
+      val bytes = ReadSPI(3)
       chip_release()
-      println(bytes)
       val retval = (bytes(0) << 16) | (bytes(1) << 8) | (bytes(2)) & 0x0FFF
       println(retval)
       Some(retval)
@@ -243,15 +247,6 @@ object ADS1256 {
     }
   }
 
-  def ReadSPI(n: Int): List[Int] = {
-    var result = ListBuffer[Int]()
-
-    for (i <- Range(0,n)) {
-      // Write always returns an Array of Byte, even if it's just one byte. Pull the byte out and add it to the List
-      result += (spidev.write(0xFF.toByte)(0).toInt & 0x000F)
-    }
-    result.toList
-  }
 
   // TODO: ReadDifferentialInput
   def ReadInput(positive_input: Input, negative_input: Input = Input.AINCOM) = {
