@@ -1,6 +1,4 @@
 /.idea
-/project
-/target/streams
-/target/.history
-/target/scala-2.11
-/target/resolution-cache
+/target
+/project/project
+/project/target
