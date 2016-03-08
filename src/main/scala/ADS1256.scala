@@ -3,6 +3,7 @@ import java.util.concurrent.TimeUnit
 
 import ADS1256.Input.Input
 import ADS1256.Register.Register
+import akka.actor.Actor
 import com.pi4j.io.gpio.{PinState, RaspiPin, GpioFactory}
 import com.pi4j.io.spi.{SpiMode, SpiChannel, SpiFactory}
 
@@ -349,5 +350,22 @@ object ADS1256 {
     WriteRegister(Register.STATUS, Status.ACAL_ON.id)
     WriteRegister(Register.DRATE, DataRate.DRATE_1000.id)
     chip_release()
+  }
+
+  /** Returns a list of the voltages read on all inputs passed to the function. If no inputs are passed in then the
+    * function reads all 8 inputs and returns the list with corresponding values.
+    *
+    * @param inputs: inputs to read
+    */
+  def ReadInputs(inputs: List[Input] = Input.values.toList) = {
+    val data: ListBuffer[Double] = ListBuffer()
+
+    for (input <- inputs if input != Input.AINCOM) {
+      data += (ReadInput(input) match {
+        case Some(i) => ConvertVoltage(i)
+        case None => Double.NaN
+      })
+    }
+    data.toList
   }
 }
