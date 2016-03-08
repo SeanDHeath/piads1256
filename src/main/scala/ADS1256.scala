@@ -350,19 +350,4 @@ object ADS1256 {
     WriteRegister(Register.DRATE, DataRate.DRATE_1000.id)
     chip_release()
   }
-
-  def main(args: Array[String]): Unit = {
-    InitializeADS1256()
-
-    val inputs: ListBuffer[Double] = ListBuffer()
-
-    println("AIN0,AIN1,AIN2,AIN3,AIN4,AIN5,AIN6,AIN7")
-    for (input <- Input.values if input != Input.AINCOM) {
-      inputs += (ReadInput(input) match {
-        case Some(i) => ConvertVoltage(i)
-        case None => Double.NaN
-      })
-    }
-    println(inputs.mkString(","))
-  }
 }
