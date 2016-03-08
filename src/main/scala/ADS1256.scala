@@ -3,15 +3,37 @@ import java.util.concurrent.TimeUnit
 
 import ADS1256.Input.Input
 import ADS1256.Register.Register
-import akka.io.Tcp.WriteCommand
 import com.pi4j.io.gpio.{PinState, RaspiPin, GpioFactory}
 import com.pi4j.io.spi.{SpiMode, SpiChannel, SpiFactory}
 
-import scala.None
-import scala.collection.mutable
-import scala.collection.mutable.{ListBuffer, Queue}
+import scala.collection.mutable.ListBuffer
 
 object ADS1256 {
+
+  /*
+  TODO: Implement GPIO
+  TODO: SetDataRate()
+  TODO: SetGain()
+  TODO: SetAutoCalibration()
+  TODO: ReadID()
+  TODO: SetBitOrder()
+  TODO: SetBufferEnable()
+  TODO: SetCLKOut()
+  TODO: SetSensorDetectCurrentSources()
+   */
+
+  val debugging = false
+
+  /** Used to print debug messages
+    *
+    * @param s: String to print
+    */
+  def dprintln(s: String) = {
+    if (debugging) {
+      println("DEBUG: " + s)
+    }
+  }
+
   // Register Addresses
   val NUM_REGISTERS = 11
   object Register extends Enumeration {
@@ -114,21 +136,21 @@ object ADS1256 {
   var drdy_timeout = 500 // ms
   var adc_gain = 1 // to adjust this, write to the
 
-  // Open the new device
+  // Open the new SPI device
   val spidev = SpiFactory.getInstance(spi_channel, spi_frequency, spi_mode)
 
   // Set up pins
-  val gpio = GpioFactory.getInstance()
-  val DRDY_PIN = gpio.provisionDigitalInputPin(RaspiPin.GPIO_00)
+  val gpio      = GpioFactory.getInstance()
+  val DRDY_PIN  = gpio.provisionDigitalInputPin(RaspiPin.GPIO_00)
   val RESET_PIN = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_01)
-  val PDWN_PIN = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_02)
-  val CS_PIN = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_03)
+  val PDWN_PIN  = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_02)
+  val CS_PIN    = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_03)
 
   // These must be used to tell the ADS1256 we're talking to it - if we don't use them then we will get no information
   // from the chip
   def chip_select() = {
     CS_PIN.low()
-    TimeUnit.MICROSECONDS.sleep(5)
+    TimeUnit.MICROSECONDS.sleep(1)
   }
   def chip_release() = {
     TimeUnit.MICROSECONDS.sleep(1)
@@ -144,19 +166,20 @@ object ADS1256 {
   PDWN_PIN.high()
   chip_release()
 
-  // Methods
+  /** Returns a boolean value indicating if the DRDY pin is indicating that there is data ready (true) or if there is
+    * an error (false)
+    */
   def DataReady(): Boolean = {
+    dprintln("DataReady")
     val startTime = System.currentTimeMillis()
     var currentTime = System.currentTimeMillis()
 
-    println("DataReady: " + currentTime + ", " + startTime)
-    println(DRDY_PIN.getState)
+    dprintln("DRDY - " + DRDY_PIN.getState)
 
-    // Wait for drdy to go low or for timeout to occur
     while (((currentTime - startTime) < drdy_timeout) &&
       (DRDY_PIN.getState != PinState.LOW)) {
       currentTime = System.currentTimeMillis()
-      println("waiting for data...")
+      dprintln("waiting for data...")
     }
 
     // If we timed out
@@ -169,59 +192,38 @@ object ADS1256 {
     }
   }
 
-  /** Writes data to an ADS1256 register through the SPI bus.
-    *
-    * @param start_register
-    * @param data
-    */
-  def WriteRegister(start_register: Register, data: Byte): Unit = {
-    // Validate the register and data length
-    if (Register.values.exists(_ == start_register)) {
-      var commands = Queue[Int]()
-      commands += (Command.WREG.id | start_register.id)
-      commands += 0x00
-      commands += data
-
-      chip_select()
-      WriteSPI(Command.WREG.id | start_register.id)
-      WriteSPI(0x00)
-      WriteSPI(data)
-      chip_release()
-      TimeUnit.MICROSECONDS.sleep(1)
-    } else {
-      println("Write Register: Provided register address is not valid")
-    }
-  }
-
   /** Writes a string of data to the SPI bus, all Ints are truncated to Bytes
     *
-    * @param value
+    * @param value: Integer value, only the bottom 8 bits are kept
     */
   def WriteSPI(value: Int) = {
-    println("WriteSPI: " + value)
     spidev.write(value.toByte)
   }
+
+  /** Returns a List[Int] with the lower 8 bits of each Int containing the value read from the SPI bus
+    *
+    * @param n: number of bytes to read from the SPI bus
+    */
   def ReadSPI(n: Int) = {
     val arr = Array.fill[Byte](n)(0xFF.toByte)
     val result = spidev.write(arr, 0, arr.length).toList
     result.map{i: Byte => i.toInt & 0x00FF}
   }
 
-  // The chip default is a differential reading between AIN0 and AIN1, this defaults to reading a single ended read
-  // on positive_input
   /** Selects which analog input to read from the ADS1256
     *
     * This function writes to the MUX register and tells the ADS1256 which input to read from. If only a positive input
     * is provided then it will provide the voltage on that pin with reference to AINCOM. If two inputs are provided
     * then it will provide the differential voltage between them.
     *
-    * @param positive_input
-    * @param negative_input
+    * @param positive_input: The analog input to be used as the positive input
+    * @param negative_input: The analog input to be used as the negative input, AINCOM by default
     */
   def SelectInput(positive_input: Input, negative_input: Input = Input.AINCOM) = {
       // Wait for DRDY before sending MUX signal
       if (DataReady()){
         chip_select()
+        // Executes the sequence to change registers outlined on pg 21 of the ADS1256 datasheet
         WriteRegister(Register.MUX, (positive_input.id << 4) | negative_input.id)
         Sync()
         Wakeup()
@@ -229,15 +231,26 @@ object ADS1256 {
       }
   }
 
+  /** Sends the WAKEUP command to the ADS1256
+    */
   def Wakeup() = {
     WriteSPI(Command.WAKEUP.id)
   }
 
+  /** Sends the SYNC command to the ADS1256 and delays 4us as required by the chip. This information is outlined on
+    * pg 6 of the datasheet.
+    */
   def Sync() = {
     WriteSPI(Command.SYNC.id)
     TimeUnit.MICROSECONDS.sleep(4)
   }
 
+  /** Writes the bottom 8 bits of the provided value to the register provided. Delays the appropriate amount of time
+    * as outlined on pg6 of the datasheet for the ADS1256.
+    *
+    * @param register: Register to write to
+    * @param value: Value to write to that register
+    */
   def WriteRegister(register: Register, value: Int) = {
     WriteSPI(Command.WREG.id | register.id)
     WriteSPI(0x00)
@@ -245,25 +258,36 @@ object ADS1256 {
     TimeUnit.MICROSECONDS.sleep(1)
   }
 
+  /** Returns an Int with the bottom 8 bytes indicating the value of the register.
+    *
+    * @param register: The register to read
+    * @return
+    */
   def ReadRegister(register: Register) = {
     WriteSPI(Command.RREG.id | register.id)
     WriteSPI(0x00)
     DataDelay()
-    val value = ReadSPI(1)
+    val value = ReadSPI(1).head
     TimeUnit.MICROSECONDS.sleep(1)
-    value
+    value.toInt & 0x00FF
   }
 
+  /** Delay to execute after writing a command that requests data. This value is calculated from pg6 of the ADS1256
+    * datasheet.
+    */
   def DataDelay() = {
     TimeUnit.MICROSECONDS.sleep(10)
   }
 
+  /** Writes the SELFCAL command to the ADS1256 and waits for the DRDY line to go high per instructions on pg6 of the
+    * ADS1256 datasheet.
+    */
   def SelfCal() = {
     WriteSPI(Command.SELFCAL.id)
     DataReady()
   }
 
-  /** Returns an Int containing the 24 bit analog voltage value provided by the ADS1256
+  /** Returns a signed Int containing the 24 bit analog voltage value provided by the ADS1256
     *
     */
   def ReadData(): Option[Int] = {
@@ -276,20 +300,24 @@ object ADS1256 {
       val bytes = ReadSPI(3)
       chip_release()
 
-      println(bytes)
-      val msb = bytes(0)<< 24
+      // First we shift over to the end of the Int size (32 bits) to preserve the sign of the measurement.
+      val msb = bytes.head << 24
       val midb = bytes(1)<< 16
       val lsb = bytes(2)<< 8
+      // Then all values are ORed together and shifted back to the right (which preserves the sign)
       val retval = (msb | midb | lsb) >> 8
-      println(retval)
       Some(retval)
     } else {
-      println("ReadData: Failed to read data")
+      println("Failed to read data")
       None
     }
   }
 
-  // TODO: ReadDifferentialInput
+  /** Returns an Option[Int] containing the value read from the currently selected ADC input.
+    *
+    * @param positive_input: The input to use as the positive measurement
+    * @param negative_input: The input to use as the negative measurement
+    */
   def ReadInput(positive_input: Input, negative_input: Input = Input.AINCOM) = {
     // We only want to switch the input if we have to
     if ((current_positive_input != positive_input) || (current_negative_input != negative_input)){
@@ -300,28 +328,41 @@ object ADS1256 {
     ReadData()
   }
 
+  /** Converts the 24 bit number to a voltage using the conversion indicated in Table 16 on pg23 of the ADS1256
+    * data sheet.
+    *
+    * @param voltage: 24 bit signed integer containing the measured value from the ADC
+    * @param vref: The current reference voltage, defaults to 5V
+    * @return
+    */
   def ConvertVoltage(voltage: Int, vref: Double = 5): Double = {
     val resolution = (vref * 2) / 0x00FFFFFF.toDouble
     voltage * resolution
   }
 
+  /** Initializes the ADS1256 with the following parameters enabled:
+    * Autocalibration on - page 26 of the ADS1256 datasheet
+    * Data rate - 1k samples per second
+    */
   def InitializeADS1256() = {
-    var commands = Queue[Int]()
     chip_select()
     WriteRegister(Register.STATUS, Status.ACAL_ON.id)
     WriteRegister(Register.DRATE, DataRate.DRATE_1000.id)
-    println("Read Register: " + ReadRegister(Register.STATUS))
     chip_release()
   }
 
   def main(args: Array[String]): Unit = {
     InitializeADS1256()
 
-    for (input <- Input.values){
-      ReadInput(input) match {
-        case Some(i) => println("Input " + input.id.toString + ": " + ConvertVoltage(i).toString + "V")
-        case None => println("Failed to read input " + input.id.toString)
-      }
+    val inputs: ListBuffer[Double] = ListBuffer()
+
+    println("AIN0,AIN1,AIN2,AIN3,AIN4,AIN5,AIN6,AIN7")
+    for (input <- Input.values if input != Input.AINCOM) {
+      inputs += (ReadInput(input) match {
+        case Some(i) => ConvertVoltage(i)
+        case None => Double.NaN
+      })
     }
+    println(inputs.mkString(","))
   }
 }
